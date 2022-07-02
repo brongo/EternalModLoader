@@ -246,8 +246,6 @@ namespace EternalModLoader
         /// <returns>whether or not the mod with the given name and resource name is safe for online play</returns>
         public static bool IsModSafeForOnline(Mod mod)
         {
-            bool isSafe = true;
-            bool isModifyingUnsafeResource = false;
             List<ResourceModFile> assetsInfoJsons = new List<ResourceModFile>();
 
             foreach (var modFile in mod.Files)
@@ -266,15 +264,12 @@ namespace EternalModLoader
                     continue;
                 }
 
-                if (UnsafeResourceNameKeywords.Any(keyword => resourceModFile.ResourceName.StartsWith(keyword, StringComparison.OrdinalIgnoreCase)))
-                {
-                    isModifyingUnsafeResource = true;
-                }
+                bool isModifyingUnsafeResource = UnsafeResourceNameKeywords.Any(keyword => resourceModFile.ResourceName.StartsWith(keyword, StringComparison.OrdinalIgnoreCase));
 
                 // Files with .lwo extension are unsafe - also catches $ variants such as .lwo$uvlayout_lightmap=1
-                if (Path.GetExtension(resourceModFile.Name).Contains(".lwo"))
+                if (Path.GetExtension(resourceModFile.Name).Contains(".lwo") && isModifyingUnsafeResource)
                 {
-                    isSafe = false;
+                    return false;
                 }
 
                 // Allow modification of anything outside of "generated/decls/"
@@ -284,20 +279,11 @@ namespace EternalModLoader
                     continue;
                 }
 
-                if (isSafe)
+                // Do not allow mods to modify non-whitelisted files in unsafe resources
+                if (!OnlineSafeModNameKeywords.Any(keyword => resourceModFile.Name.ToLower().Contains(keyword)) && isModifyingUnsafeResource)
                 {
-                    isSafe = OnlineSafeModNameKeywords.Any(keyword => resourceModFile.Name.ToLower().Contains(keyword));
+                    return false;
                 }
-            }
-
-            if (isSafe)
-            {
-                return true;
-            }
-
-            if (!isSafe && isModifyingUnsafeResource)
-            {
-                return false;
             }
 
             // Don't allow adding unsafe mods in safe resource files into unsafe resources files
